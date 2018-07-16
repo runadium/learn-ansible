@@ -1,0 +1,45 @@
+# Git mergetool
+*.orig
+
+# Maven
+target/
+
+# Python
+*.pyc
+
+# IntelliJ
+.idea/
+*.iml
+
+# Eclipse
+.project
+.pydevproject
+.classpath
+.settings/
+
+# ssh
+.ssh/
+.ssh/*.*
+
+# Vagrant
+.vagrant/
+
+# VsCode
+\.vscode/
+
+# Molecule
+.molecule/
+
+# Ansible
+*.retry
+
+.DS_Store
+ansible/nohup\.out
+
+.env
+
+ssh\.config
+
+ansible/callback_plugins/nohup\.out
+
+ansible/galaxy_roles/
