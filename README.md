@@ -1,8 +1,22 @@
 # learn-ansible
 
+## Notre objectif
+
+L'objectif de ce tutorial est d'apprendre à installer une infrastructure complexe grâce à [Ansible](https://docs.ansible.com/ansible/latest/index.html).
+
+## Architecture technique cible
+
+Notre infracstructure sera composé de 5 VMs réparties comme suit:
+
+- **1 x BASTION:** Cette VM va nous servir de point d'accès aux autres machines de l'infra. Ansible sera installé et exécuté sur cette VM.
+- **3 x VMs applicatives:** Sur les quelles nous allons installer une application [Spring-Boot](https://spring.io/projects/spring-boot) qui exposera des endpoints REST.
+- **1 x VM [HAProxy](http://www.haproxy.org/):** Nous servira de load balancer (Front end) pour les clients.
+
+![tutorial infra architecture](assets/learn-ansible-infra.png)
+
 ## Step 1: Installation de l'environement
 
-### Architecture
+
 
 ### Vagrant
 
