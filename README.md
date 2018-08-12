@@ -18,13 +18,13 @@ Notre infracstructure sera composé de 5 VMs réparties comme suit:
 
 ## Step 1: Installation de l'environement
 
-
-
 ### Vagrant
 
-Nous allons utiliser Vagrant pour simuler (par virtualisation) notre infrastructure
+Nous allons utiliser [Vagrant](https://www.vagrantup.com/) pour simuler (par virtualisation) notre infrastructure?
 
 #### Installation de Vagrant
+
+Suivez les instructions sur la page [officiel](https://www.vagrantup.com/intro/getting-started/install.html) pour installer Vagrant sur votre poste
 
 #### Plugins à installer
 
@@ -335,7 +335,7 @@ ansible -m command -a "systemctl status simple-springboot-app" spring-boot-app
 
 Vous devriez voir que pour chaque VM le statut du service simple-springboot-app est **active**
 
-## Step 5: Création du role d'installation de HAProxy 
+## Step 5: Création du role d'installation de HAProxy
 
 Maintenant que nos applis Spring Boot sont installées et démarrées, nous allons écrire le role nous permettant d'installer **HAPROXY** comme loadbalancer devant les applications Spring Boot.
 
@@ -343,7 +343,12 @@ Afin de pratiquer le TDD, nous allons commencé par penser aux tests de notre fu
 
 ### Test avec Molecule
 
-#### Installation de molecule
+[Molecule](https://molecule.readthedocs.io/en/latest/) est un framework qui permet de tester nos roles Ansible.
+Le principe de molecule est de créer notre Infra de test, d'exécuter notre role (via un playbook) et ensuite de vérifier que tout s'est bien passé grace notamment à [TestInfra](https://testinfra.readthedocs.io/en/latest/). Les tests seront écrits en Python.
+
+[Molecule](https://molecule.readthedocs.io/en/latest/) permet de créer l'infra de test avec Docker, Vagrant ou Openstack, ec2, azure. Nous allons nous baser sur une infra de test basée sur Docker
+
+#### Installation de molecule sur la VM Bastion
 
 ```sh
 # Molecule utilisera Docker pour les tests
@@ -353,11 +358,11 @@ systemctl start docker.service
 # Vérifier que Docker est bien installé et démarré
 docker info
 
-# Installation de prérequis
+# Installation de prérequis à molecule
 yum install -y gcc python-devel openssl-devel libffi-devel
 
-# Installation de Molecule
-pip install molecule
+# Installation de Molecule et le client docker python
+pip install molecule docker
 ```
 
 #### Creation du role HAPROXY
@@ -366,6 +371,7 @@ pip install molecule
 cd roles
 # La commande suivante va créer la structure de notre role haproxy
 molecule init role -r haproxy -d docker
+cd haproxy
 ```
 
 La structure du répertoire du role haproxy qui a été crée par molecule est la suivante:
@@ -379,12 +385,12 @@ La structure du répertoire du role haproxy qui a été crée par molecule est l
     │   └── main.yml
     ├── molecule            # Contient les tests molecule de notre role
     │   └── default
-    │       ├── Dockerfile.j2
+    │       ├── Dockerfile.j2   # Dockerfile qui sera utilisé pour créer les containers de test
     │       ├── INSTALL.rst
-    │       ├── molecule.yml
-    │       ├── playbook.yml
+    │       ├── molecule.yml    # Paramètres utilisés par Molecule
+    │       ├── playbook.yml    # Playbook de test qui utilisera le role haproxy
     │       └── tests
-    │           ├── test_default.py
+    │           ├── test_default.py # Tests python basés sur TestInfra
     │           └── test_default.pyc
     ├── README.md
     ├── tasks               # Contient l'ensemble des taches (task) à exécuter
@@ -394,6 +400,453 @@ La structure du répertoire du role haproxy qui a été crée par molecule est l
 
     8 directories, 12 files
 
-#### Ecriture du test minimal avec TestInfra
+Molecule a généré un test basique de notre role. Ce test va simplement créer une instance Docker (Centos:7) et vérifier que le fichier **/etc/hosts** existe bien et appartient à l'utilisateur **root**. Donc rien à voir avec HAPROXY mais la base de test est là.
+
+```sh
+# Exécuter les tests par défaut de molecule
+molecule test # Le test va passer car même si nous n'avons rien implémenté pour le moment, molecule a généré un test minimum qui passera à tout les coups
+
+# Pour exécuter les tests sans détruire les containers de test à la fin, exécutez la commande suivante
+molecule test --destroy never
+```
+
+##### Préparation des tests minimaaux avec TestInfra
+
+Nous allons dans un premier temps à minima tester que le service haproxy est bien installé et démarré. Modifions le fichier **molecule/default/tests/test_default.py** pour vérifier que le service est *running*.
+
+```sh
+#
+cat > /learn-ansible/roles/haproxy/molecule/default/tests/test_default.py <<EOF
+
+import os
+
+import testinfra.utils.ansible_runner
+
+testinfra_hosts = testinfra.utils.ansible_runner.AnsibleRunner(
+    os.environ['MOLECULE_INVENTORY_FILE']).get_hosts('all')
+
+def test_haproxy_package_is_installed(host):
+    package = host.package("haproxy")
+    assert package.is_installed
+
+
+def test_haproxy_service_is_started(host):
+    service = host.service('haproxy')
+    assert service.is_running
+    assert service.is_enabled
+EOF
+```
+
+    Docker ne permets pas d'utiliser les services à l'intérieur d'un container par défaut. Nous allons néanmoins faire le nécessaire (dans le fichier molecule/default/molecule.yml)
+
+```sh
+# Remplacons le fichier par défaut en rajoutant nos modifications
+cat > /learn-ansible/roles/haproxy/molecule/default/molecule.yml <<EOF
+---
+dependency:
+  name: galaxy
+driver:
+  name: docker
+lint:
+  name: yamllint
+platforms:
+  - name: instance
+    image: centos:7
+    privileged: true                    # Ligne rajouté pour gérer les services dans Docker
+    command: '/sbin/init'               # Ligne rajouté pour gérer les services dans Docker
+    cap_add: ['SYS_ADMIN', 'SETPCAP']   # Ligne rajouté pour gérer les services dans Docker
+provisioner:
+  name: ansible
+  lint:
+    name: ansible-lint
+scenario:
+  name: default
+verifier:
+  name: testinfra
+  lint:
+    name: flake8
+EOF
+```
+
+Exécutons de nouveau les tests qui cette fois ci devrait être KO puisque nous n'avons pas encore écrit l'installation de [HaProxy](http://www.haproxy.org/).
+
+```sh
+# pour gagner du temps sur les prochaines éxécutions des tests nous allons rajouter l'option --destroy never
+molecule test --destroy never
+```
+
+Le test doit se terminer en erreur avec les messages suivants:
+
+    =================================== FAILURES ===================================
+    ____________ test_haproxy_package_is_installed[ansible://instance] _____________
+
+    host = <testinfra.host.Host object at 0x7f0e78057ad0>
+
+        def test_haproxy_package_is_installed(host):
+            package = host.package("haproxy")
+    >       assert package.is_installed
+    E       assert False
+    E        +  where False = <package haproxy>.is_installed
+
+    tests/test_default.py:11: AssertionError
+    _____________ test_haproxy_service_is_started[ansible://instance] ______________
+
+    host = <testinfra.host.Host object at 0x7f0e78057ad0>
+
+        def test_haproxy_service_is_started(host):
+            service = host.service('haproxy')
+    >       assert service.is_running
+    E       assert False
+    E        +  where False = <service haproxy>.is_running
+
+    tests/test_default.py:16: AssertionError
+    =========================== 2 failed in 7.96 seconds ===========================
+
+Les messages d'erreur sont très clairs, le package **haproxy** n'est pas installé et le service n'est pas *Running*.
+
+Nous allons maintenant écrire le role **haproxy** et nous assurer que les tests passeront cette fois ci.
+
+Pour exécuter uniquement les tests sans rejouer toutes les étapes, nous pouvons exécuter la commande suivante:
+
+```sh
+molecule verify
+```
+
+##### Implémentons le role haproxy
+
+Dans un role Ansible, les tâches principales à exécuter pour dérouler notre role sont dans le fichier **tasks/main.yml**
+
+###### Installation du package haproxy
+
+```sh
+cat > /learn-ansible/roles/haproxy/tasks/main.yml <<EOF
+---
+
+- name: Ensure HAProxy package is installed.
+  package:
+    name: haproxy
+    state: present
+
+EOF
+````
+
+Réexecutons le role puis les tests pour s'assurer que le test de vérification de la présence du package **haproxy** est **OK**
+
+```sh
+# Exécuter le role sur les container Docker de test
+molecule converge
+
+# Exécuter à nouveau les tests
+molecule verify
+```
+
+Cette fois ci il n'y a plus qu'une seule erreur (service is not running). Le test qui vérifie que le package est installé est **OK**
+
+    =================================== FAILURES ===================================
+    _____________ test_haproxy_service_is_started[ansible://instance] ______________
+
+    host = <testinfra.host.Host object at 0x7f02ff1a7b10>
+
+        def test_haproxy_service_is_started(host):
+            service = host.service('haproxy')
+    >       assert service.is_running
+    E       assert False
+    E        +  where False = <service haproxy>.is_running
+
+    tests/test_default.py:16: AssertionError
+    ====================== 1 failed, 1 passed in 8.24 seconds ======================
+
+Si vous doutez de la sortie de **Testinfra**, vous pouvez vérifiez vous même en vous connectant au container de test.
+
+```sh
+# Voir la liste des containers de test
+molecule list
+
+# Se connecter en ssh à l'unique instance de test
+molecule login
+
+# Une fois connecté, vérifier que haproxy est bien installé
+yum list installed haproxy # a exécuter depuis le container Docker
+
+# Se déconnecter du cotainer
+exit
+```
+
+###### Activation et démarrage du service HAProxy
+
+```sh
+cat > /learn-ansible/roles/haproxy/tasks/main.yml <<EOF
+---
+
+- name: Ensure HAProxy package is installed.
+  package:
+    name: haproxy
+    state: present
+
+- name: Ensure HAProxy is started and enabled on boot.
+  service:
+    name: haproxy
+    state: started
+    enabled: yes
+
+EOF
+```
+
+Réexecutons le role puis les tests pour s'assurer que le test de vérification de la présence du package **haproxy** est **OK**
+
+```sh
+# Exécuter le role sur les container Docker de test
+molecule converge
+
+# Exécuter à nouveau les tests
+molecule verify
+```
+
+Hourraa !!! Tous nos tests sont **OK** cette fois ci.
+
+    =========================== 2 passed in 8.69 seconds ===========================
+
+Pas compliqué n'est ce pas? Nous avons déja un role qui installe et démarre haproxy.
+
+*Wait!!!* Nous n'avons pas configuré **HAProxy** pour qu'il soit en frontal de nos applis **Spring Boot**.
+
+**Let's do it!!!**
+
+###### Configuration de HAProxy
+
+Il nous faudra être capable de générer la configuration de **HAProxy** en fonction des VM backend (**simple-springboot-app)
+
+Le fichier de configuration final devra ressemblé à celui ci:
+
+    global
+        log /dev/log    local0
+        log /dev/log    local1 notice
+        chroot /var/lib/haproxy
+        user haproxy
+        group haproxy
+        daemon
+
+    defaults
+        log     global
+        mode    http
+        option  httplog
+        option  dontlognull
+        timeout connect 5000
+        timeout client  50000
+        timeout server  50000
+
+    frontend appfrontend
+        bind *:80
+        mode http
+        default_backend appbackend
+
+    backend appbackend
+        mode http
+        balance roundrobin
+        option forwardfor
+        server infra-node-1.infra.local 192.168.77.31:8080 check
+        server infra-node-2.infra.local 192.168.77.32:8080 check
+
+Le but n'étant pas de parcourir toute les configurations possibles d'HAProxy, nous allons nous contenter de cette configuration minimaliste qui devrait répondre à notre besoin de **loadbalancing** pour nos applis spring boot.
+
+Vous remarquerez cependant que cette configuration n'est pas satisfaisante, car elle n'est pas configurable, c'est à dire que par exemple si le l'adresse IP d'une VM change ou si nous rajoutons une VM (Spring Boot) elle ne sera pas automatiquement rajouté dans la configuration d'HAProxy
+
+Modifions notre role pour qu'il puisse gérer les mises à jour de notre infra.
+
+* Ajout du template de configuration haproxy e utilisant le templating [Jinja2](http://jinja.pocoo.org/docs/2.10/)
+
+```sh
+mkdir /learn-ansible/roles/haproxy/templates
+
+# Création du templae de configuration (Jinja 2)
+cat > /learn-ansible/roles/haproxy/templates/haproxy.cfg.j2 <<EOF
+# {{ansible_managed}}
+global
+    log /dev/log    local0
+    log /dev/log    local1 notice
+    chroot /var/lib/haproxy
+    user haproxy
+    group haproxy
+    daemon
+
+defaults
+    log     global
+    mode    http
+    option  httplog
+    option  dontlognull
+    timeout connect 5000
+    timeout client  50000
+    timeout server  50000
+
+frontend {{ haproxy_frontend_name }}
+    bind *:80
+    mode {{ haproxy_frontend_mode }}
+    default_backend {{ haproxy_backend_name }}
+
+backend {{ haproxy_backend_name }}
+    mode {{ haproxy_backend_mode }}
+    balance {{ haproxy_backend_balance }}
+    option forwardfor
+{% for backend in haproxy_backend_servers %}
+    server {{ backend.name }} {{ backend.address }} {{ backend.name }} check
+{% endfor %}
+
+EOF
+```
+
+* Modification de /learn-ansible/roles/haproxy/tasks/main.yml pour gérer la copie (templating) de la configuration de l'HAPROXY
+
+```sh
+# Mise à jour de notre fichier tasks principal
+cat > /learn-ansible/roles/haproxy/tasks/main.yml <<EOF
+---
+
+- name: Ensure HAProxy package is installed.
+  package:
+    name: haproxy
+    state: present
+
+- name: Ensure HAProxy is started and enabled on boot.
+  service:
+    name: haproxy
+    state: started
+    enabled: yes
+
+- name: Source HAProxy configuration file.
+  template:
+    src: haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+    mode: 0644
+  notify: restart haproxy # Ici on demande à Ansible de redémarrer HAProxy dès que la configuration a changé
+
+EOF
+```
+
+* Création du Handler dont le but sera de redémarrer HAProxy lorscequ'il sera notifié.
+
+```sh
+# Mise à jour du fichier handler pour gérer les demandes de redémarrage
+cat > /learn-ansible/roles/haproxy/handlers/main.yml <<EOF
+---
+
+- name: restart haproxy
+  service:
+    name: haproxy
+    state: restarted
+
+EOF
+```
+
+Re exécutons notre role pour voir les changements.
+
+```sh
+molecule converge
+```
+
+Oups!! nous obtenos l'erreur suivante:
+
+    TASK [haproxy : Source HAProxy configuration file.] ****************************
+    fatal: [instance]: FAILED! => {"changed": false, "msg": "AnsibleUndefinedVariable: 'haproxy_frontend_name' is undefined"}
+
+    PLAY RECAP *********************************************************************
+    instance                   : ok=3    changed=0    unreachable=0    failed=1
+
+La variable **haproxy_frontend_name** n'est pas connue  de Ansible. En fait c'est le cas pour toutes les variables qui sont utilisés dans le template de configuration de l'HAProxy (*/learn-ansible/roles/haproxy/templates/haproxy.cfg.j2*)
+
+
+* Modifions le playbook utilisé par molecule pour les tests afin de définir des valeurs pour les variables dont a besoin le role
+
+```sh
+cat > /learn-ansible/roles/haproxy/molecule/default/playbook.yml <<EOF
+---
+
+- name: Converge
+  hosts: all
+  vars:
+    haproxy_frontend_name: simple-springboot-app-frontend
+    haproxy_frontend_mode: http
+    haproxy_backend_mode: http
+    haproxy_backend_balance: roundrobin
+    haproxy_backend_name: simple-springboot-app-backend
+    haproxy_backend_servers:
+      - name: app1 # ces différentes valeurs servent simplement à fournir aux roles des valeurs pour le test
+        address: 192.168.0.1:80 # pareil pour l'adresse qui ne correspond pas réelement à notre backend
+  roles:
+    - role: haproxy
+
+EOF
+```
+
+Re exécutons notre role pour voir les changements.
+
+```sh
+molecule converge
+```
+
+Cette fois ci notre role s'est bien exécuté.
+
+Notez sur bien que le handler (responsable du redémarrage de l'HAProxy) s'est déclenché parceque le fichier de configuration à changer.
+
+ Pour voir le contenu du fichier de configuration final (celui dans le container Docker de test de molecule), faire les commandes suivante:
+
+ ```sh
+# Se connecter sur le container
+molecule login
+
+# Une fois dans le container
+cat /etc/haproxy/haproxy.cfg
+
+# Ensuite pour sortir du container
+exit
+ ```
+
+On voit que Ansible à bien renseigné toutes les variables attendues
+
 
 ### Playbook d'installation de l'HAPROXY
+
+Maintenant que les tests de notre role sont écris et passent tous (même s'ils ne sont pas complet), nous allons créer un playbook de déploiement de **HAProxy** pour le déployer sur notre super infra.
+
+```sh
+# retournons dans notre répertoire de bas /learn-ansible pour la suite
+cd /learn-ansible
+```
+
+#### Création du playbook
+
+```sh
+cat > /learn-ansible/deploy-haproxy.yml <<EOF
+---
+
+- name: Deploy HAProxy as App loadbalancer
+  hosts: ha-proxy # Ce group cible les machines sur lesquelles nous allons installer HAProxy
+  vars:
+    haproxy_frontend_name: simple-springboot-app-frontend
+    haproxy_frontend_mode: http
+    haproxy_backend_mode: http
+    haproxy_backend_balance: roundrobin
+    haproxy_backend_name: simple-springboot-app-backend
+  pre_tasks:
+    - set_fact:
+        haproxy_backend_servers: "{{ (haproxy_backend_servers | default([])) + [{'name':  item  ,'address':  item + ':8080'  }] }}"
+      with_items: "{{ groups['spring-boot-app'] }}"
+  roles:
+    - role: haproxy
+
+EOF
+
+```
+
+Exécutons le playbook de déploiement de HAProxy
+
+```sh
+ansible-playbook deploy-haproxy.yml
+```
+
+Pour tester que tout fonctionne bien:
+
+- Ouvrez votre navigateur web préféré
+- Aller à l'adresse suivante: **http://192.168.77.31/hello**
+- Rafraichissez cette page plusieurs fois pour constaté dans le message affiché qu'à chaque appel c'est une instance différente de nos application **Spring Boot** qui réponds.
+
+Nous l'avons fait !! Nous venons de mettre en place l'infra tel que décrite au début du tuto.
