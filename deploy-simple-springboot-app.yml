@@ -1,0 +1,29 @@
+
+---
+- name: Deploy Simple Spring boot App
+  hosts: spring-boot-app # On indique le groupe qui a été défini dans notre inventaire
+  vars:
+    sb_java_package: java-1.8.0-openjdk
+    sb_user_groups_definitions:
+      - name: sbgroup
+    sb_users_definition:
+      - name: Simple Spring boot App User
+        username: sbuser
+        groups: [sbgroup]
+  roles:
+    - role: orachide.springboot-service # On indique le role que nous avons installé depuis la Galaxy ainsi que les variables dont ce role aura besoin
+      sb_app_name: simple-springboot-app
+      sb_app_group_id: fr.runadium
+      sb_app_artifact_id: simple-springboot-app
+      sb_app_version: 0.0.1-SNAPSHOT
+      sb_app_extension: jar
+      sb_app_user: sbuser
+      sb_app_user_group: sbgroup
+      sb_app_artifact_file: "/simple-springboot-app/target/simple-springboot-app-0.0.1-SNAPSHOT.jar"
+      sb_app_healthcheck_urls:
+        - "https://localhost:8443/actuator/health"
+        - "http://localhost:8080/actuator/health"
+      sb_app_healthcheck_ports:
+        - 8080
+        - 8443
+

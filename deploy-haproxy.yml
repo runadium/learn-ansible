@@ -1,0 +1,17 @@
+---
+
+- name: Deploy HAProxy as App loadbalancer
+  hosts: ha-proxy # Ce group cible les machines sur lesquelles nous allons installer HAProxy
+  vars:
+    haproxy_frontend_name: simple-springboot-app-frontend
+    haproxy_frontend_mode: http
+    haproxy_backend_mode: http
+    haproxy_backend_balance: roundrobin
+    haproxy_backend_name: simple-springboot-app-backend
+  pre_tasks:
+    - set_fact:
+        haproxy_backend_servers: "{{ (haproxy_backend_servers | default([])) + [{'name':  item  ,'address':  item + ':8080'  }] }}"
+      with_items: "{{ groups['spring-boot-app'] }}"
+  roles:
+    - role: haproxy
+

@@ -1,0 +1,30 @@
+
+# Default User and password to use
+[all:vars]
+ansible_user = root
+ansible_ssh_pass= vagrant
+
+# Ce group n'est pas obligatoire, il est nécessaire seulement si aucun autre groupe n'est définit
+[all]
+infra-node-1.infra.local
+infra-node-2.infra.local
+infra-node-3.infra.local
+infra-node-4.infra.local
+
+# Group HaProxy, Pour le tuto l'HAProxy sera installé sur une machine unique comme indiqué dans le schema d'architecture
+[ha-proxy]
+infra-node-1.infra.local
+
+# Permet de cibler uniquement les serveurs du groupe B
+[spring-boot-app]
+infra-node-2.infra.local
+infra-node-3.infra.local
+infra-node-4.infra.local
+
+# Ces notations permettent de définir des groupes à partir de groupes déja existant.
+[loadbalancer:children]
+ha-proxy
+
+[applis:children]
+spring-boot-app
+

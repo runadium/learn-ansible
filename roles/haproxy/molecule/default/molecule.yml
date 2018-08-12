@@ -1,0 +1,23 @@
+---
+dependency:
+  name: galaxy
+driver:
+  name: docker
+lint:
+  name: yamllint
+platforms:
+  - name: instance
+    image: centos:7
+    privileged: true                    # Block rajouté pour gérer les services
+    command: '/sbin/init'               # Block rajouté pour gérer les services
+    cap_add: ['SYS_ADMIN', 'SETPCAP']   # Block rajouté pour gérer les services
+provisioner:
+  name: ansible
+  lint:
+    name: ansible-lint
+scenario:
+  name: default
+verifier:
+  name: testinfra
+  lint:
+    name: flake8

@@ -1,0 +1,16 @@
+---
+
+- name: Converge
+  hosts: all
+  vars:
+    haproxy_frontend_name: simple-springboot-app-frontend
+    haproxy_frontend_mode: http
+    haproxy_backend_mode: http
+    haproxy_backend_balance: roundrobin
+    haproxy_backend_name: simple-springboot-app-backend
+    haproxy_backend_servers:
+      - name: app1 # ces différentes valeurs servent simplement à fournir aux roles des valeurs pour le test
+        address: 192.168.0.1:80 # pareil pour l'adresse qui ne correspond pas réelement à notre backend
+  roles:
+    - role: haproxy
+
