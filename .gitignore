@@ -40,6 +40,4 @@ ansible/nohup\.out
 
 ssh\.config
 
-ansible/callback_plugins/nohup\.out
-
-ansible/galaxy_roles/
+galaxy_roles/

@@ -5,7 +5,7 @@ required_plugins.each do |plugin|
     system "vagrant plugin install #{plugin}" unless Vagrant.has_plugin? plugin
 end
 
-# if you want to enable auth proxy 
+# if you want to enable auth proxy
 # vagrant plugin install vagrant-proxyconf
 
 Vagrant.configure(2) do |config|
@@ -29,7 +29,7 @@ Vagrant.configure(2) do |config|
         config.proxy.https    = "#{ENV['CORPORATE_HTTPS_PROXY']}"
         config.proxy.no_proxy = "#{ENV['CORPORATE_NO_PROXY']}"
     end
-    
+
     if Vagrant.has_plugin?("vagrant-timezone")
         config.timezone.value = :host
     end
@@ -47,7 +47,7 @@ Vagrant.configure(2) do |config|
         lcm_ops_box.vm.provider "virtualbox" do |v|
             now = Time.new
             v.name = "BASTION-NODE-#{now.strftime("%H_%M_%d_%m_%Y")}"
-            v.linked_clone = true # this configuration will save your time when creating VM 
+            v.linked_clone = true # this configuration will save your time when creating VM
             v.memory = ENV['BASTION_VM_MEMORY']
             v.cpus = ENV['BASTION_VM_CPU']
         end
