@@ -2,7 +2,7 @@
 
 ## Notre objectif
 
-L'objectif de ce tutorial est d'apprendre à installer une infrastructure complexe grâce à [Ansible](https://docs.ansible.com/ansible/latest/index.html).
+L'objectif de ce tutoriel est d'apprendre à installer une infrastructure complexe grâce à [Ansible](https://docs.ansible.com/ansible/latest/index.html).
 
 ## Architecture technique cible
 
@@ -14,17 +14,37 @@ Notre infracstructure sera composé de 5 VMs réparties comme suit:
 
     Vous pouvez ajuster le nombre de VM si besoin, l'idée reste la même.
 
-![tutorial infra architecture](assets/learn-ansible-infra.png)
+![tutoriel infra architecture](assets/learn-ansible-infra.png)
+
+## Avant de commencer
+
+* Clonez le repo git
+
+```sh
+# Clonez le repo sur votre poste local dans le répertoire de votre choix
+git clone https://github.com/runadium/learn-ansible.git
+```
+
+* Pour voir la version finalisée du tutoriel
+
+Cependant si votre objectif est d'apprendre les bases d'Ansible je vous conseille de suivre pas à pas le tutoriel et de vous référer à la branch **final** uniquement en cas d'erreur ou de doute.
+
+```sh
+# Switcher sur la branch final
+git checkout final
+```
+
+La branche **final** de ce repo contient tous les fichiers que nous allons créer pas à pas dans ce tutoriel.
 
 ## Step 1: Installation de l'environement
 
 ### Vagrant
 
-Nous allons utiliser [Vagrant](https://www.vagrantup.com/) pour simuler (par virtualisation) notre infrastructure?
+Nous allons utiliser [Vagrant](https://www.vagrantup.com/) pour simuler (par virtualisation) notre infrastructure. Cet outil est indipensable si vous voulez faire de l'infra en local.
 
 #### Installation de Vagrant
 
-Suivez les instructions sur la page [officiel](https://www.vagrantup.com/intro/getting-started/install.html) pour installer Vagrant sur votre poste
+Suivez les instructions sur la page [officiel](https://www.vagrantup.com/intro/getting-started/install.html) pour installer Vagrant sur votre poste local (si vous ne l'avez pas déja)
 
 #### Plugins à installer
 
@@ -54,6 +74,11 @@ mkdir /learn-ansible && cd /learn-ansible
 ```
 
 Essayez de contacter les noeuds de l'infra (depuis la VM BASTION) pour vérifier le setup
+
+```sh
+# Par exemple
+ping infra-node-1.infra.local
+```
 
 ## Step 2: Installer Ansible sur le  BASTION
 
@@ -130,7 +155,7 @@ Le mot de pass root par defaut est `vagrant`. Oui Ansible à besoin des informat
 Il y'a plusieurs façon de s'authentifier en ssh:
 
 - **user/password**: c'est ma méthode que nous allons utiliser pour faire simple
-- **certificats (private/public key)**: Dans la vraie vie vous allez plutôt utiliser des certificats pour vous connecter à vos différents serveurs. Ce n'est pas l'objectif de ce tutorial
+- **certificats (private/public key)**: Dans la vraie vie vous allez plutôt utiliser des certificats pour vous connecter à vos différents serveurs. Ce n'est pas l'objectif de ce tutoriel
 
 
 Le résultat attendue est le suivant (l'ordre des serveurs n'est pas important):
@@ -172,7 +197,7 @@ ansible -m command -a "df -h"  groupA
 
 ## Step 3: Préparation de nos différents environnements
 
-Nous allons considérer que nous avons plusieurs environnements cibles (DEV,RECETTE, QUALIF ...), même si dans ce tutorial nous allons traiter que l'environnemment de DEV.
+Nous allons considérer que nous avons plusieurs environnements cibles (DEV,RECETTE, QUALIF ...), même si dans ce tutoriel nous allons traiter que l'environnemment de DEV.
 
 ### Création de la structure des environnements
 
@@ -268,7 +293,7 @@ cd /learn-ansible
 
 ### Installation du role [springboot-service](https://github.com/orachide/ansible-role-springboot)
 
-Nous allons utiliser un role springboot-service pour installer notre appli (cela nous permettra également de voir comment utiliser un role déja existant soit sur la galaxy Ansible soit au sein de notre entreprise). Voir le Readme du role pour plus de détails.
+Nous allons utiliser un role [springboot-service](https://github.com/orachide/ansible-role-springboot) pour installer notre appli (cela nous permettra également de voir comment utiliser un role déja existant soit sur la galaxy Ansible soit au sein de notre entreprise). Voir le [Readme](https://github.com/orachide/ansible-role-springboot/blob/master/README.md) du role pour plus de détails.
 
 ```sh
 # Installation du role springboot-service depuis la galaxy Ansible public
@@ -333,20 +358,20 @@ Pas besoin de se connecter sur chaque VM séparemment pour vérifier que les app
 ansible -m command -a "systemctl status simple-springboot-app" spring-boot-app
 ```
 
-Vous devriez voir que pour chaque VM le statut du service simple-springboot-app est **active**
+Vous devriez voir que pour chaque VM le statut du service **simple-springboot-app** est **active**.
 
 ## Step 5: Création du role d'installation de HAProxy
 
 Maintenant que nos applis Spring Boot sont installées et démarrées, nous allons écrire le role nous permettant d'installer **HAPROXY** comme loadbalancer devant les applications Spring Boot.
 
-Afin de pratiquer le TDD, nous allons commencé par penser aux tests de notre futur role.
+Afin de pratiquer le TDD, nous allons commencer par penser aux tests de notre futur role.
 
 ### Test avec Molecule
 
 [Molecule](https://molecule.readthedocs.io/en/latest/) est un framework qui permet de tester nos roles Ansible.
 Le principe de molecule est de créer notre Infra de test, d'exécuter notre role (via un playbook) et ensuite de vérifier que tout s'est bien passé grace notamment à [TestInfra](https://testinfra.readthedocs.io/en/latest/). Les tests seront écrits en Python.
 
-[Molecule](https://molecule.readthedocs.io/en/latest/) permet de créer l'infra de test avec Docker, Vagrant ou Openstack, ec2, azure. Nous allons nous baser sur une infra de test basée sur Docker
+[Molecule](https://molecule.readthedocs.io/en/latest/) permet de créer l'infra de test avec **Docker**, **Vagrant** ou **Openstack**, **ec2**, **azure**. Nous allons dans notre cas nous baser sur une infra de test qui utilisera **Docker**
 
 #### Installation de molecule sur la VM Bastion
 
@@ -468,7 +493,7 @@ verifier:
 EOF
 ```
 
-Exécutons de nouveau les tests qui cette fois ci devrait être KO puisque nous n'avons pas encore écrit l'installation de [HaProxy](http://www.haproxy.org/).
+Exécutons de nouveau les tests qui cette fois ci devraient être KO puisque nous n'avons pas encore écrit la procédure d'installation de [HaProxy](http://www.haproxy.org/).
 
 ```sh
 # pour gagner du temps sur les prochaines éxécutions des tests nous allons rajouter l'option --destroy never
@@ -502,19 +527,20 @@ Le test doit se terminer en erreur avec les messages suivants:
     tests/test_default.py:16: AssertionError
     =========================== 2 failed in 7.96 seconds ===========================
 
-Les messages d'erreur sont très clairs, le package **haproxy** n'est pas installé et le service n'est pas *Running*.
+Les messages d'erreur sont très clairs, le package **haproxy** n'est pas installé et le service n'est pas **Running**.
 
 Nous allons maintenant écrire le role **haproxy** et nous assurer que les tests passeront cette fois ci.
 
-Pour exécuter uniquement les tests sans rejouer toutes les étapes, nous pouvons exécuter la commande suivante:
+Pour exécuter uniquement les tests sans rejouer toutes les étapes (création des containers), nous pouvons exécuter la commande suivante:
 
 ```sh
+# Exécuter uniquement les tests avec TestInfra
 molecule verify
 ```
 
 ##### Implémentons le role haproxy
 
-Dans un role Ansible, les tâches principales à exécuter pour dérouler notre role sont dans le fichier **tasks/main.yml**
+Dans un role Ansible, les tâches principales à exécuter pour dérouler notre role sont dans le fichier **tasks/main.yml**.
 
 ###### Installation du package haproxy
 
@@ -530,7 +556,7 @@ cat > /learn-ansible/roles/haproxy/tasks/main.yml <<EOF
 EOF
 ````
 
-Réexecutons le role puis les tests pour s'assurer que le test de vérification de la présence du package **haproxy** est **OK**
+Réexecutons le role puis les tests pour s'assurer que le test de vérification de la présence du package **haproxy** est **OK**.
 
 ```sh
 # Exécuter le role sur les container Docker de test
@@ -540,7 +566,7 @@ molecule converge
 molecule verify
 ```
 
-Cette fois ci il n'y a plus qu'une seule erreur (service is not running). Le test qui vérifie que le package est installé est **OK**
+Cette fois ci il n'y a plus qu'une seule erreur (**service is not running**). Le test qui vérifie que le package est installé est **OK**
 
     =================================== FAILURES ===================================
     _____________ test_haproxy_service_is_started[ansible://instance] ______________
@@ -556,7 +582,7 @@ Cette fois ci il n'y a plus qu'une seule erreur (service is not running). Le tes
     tests/test_default.py:16: AssertionError
     ====================== 1 failed, 1 passed in 8.24 seconds ======================
 
-Si vous doutez de la sortie de **Testinfra**, vous pouvez vérifiez vous même en vous connectant au container de test.
+Si vous doutez de la sortie de **Testinfra**, vous pouvez vérifier vous même en vous connectant au container de test.
 
 ```sh
 # Voir la liste des containers de test
@@ -568,7 +594,7 @@ molecule login
 # Une fois connecté, vérifier que haproxy est bien installé
 yum list installed haproxy # a exécuter depuis le container Docker
 
-# Se déconnecter du cotainer
+# Se déconnecter du container
 exit
 ```
 
@@ -616,7 +642,7 @@ Pas compliqué n'est ce pas? Nous avons déja un role qui installe et démarre h
 
 Il nous faudra être capable de générer la configuration de **HAProxy** en fonction des VM backend (**simple-springboot-app)
 
-Le fichier de configuration final devra ressemblé à celui ci:
+Le fichier de configuration final devra ressembler à celui ci:
 
     global
         log /dev/log    local0
@@ -647,13 +673,13 @@ Le fichier de configuration final devra ressemblé à celui ci:
         server infra-node-1.infra.local 192.168.77.31:8080 check
         server infra-node-2.infra.local 192.168.77.32:8080 check
 
-Le but n'étant pas de parcourir toute les configurations possibles d'HAProxy, nous allons nous contenter de cette configuration minimaliste qui devrait répondre à notre besoin de **loadbalancing** pour nos applis spring boot.
+Le but n'étant pas de parcourir toute les configurations possibles d'**HAProxy**, nous allons nous contenter de cette configuration minimaliste qui devrait répondre à notre besoin de **loadbalancing** pour nos applis spring boot.
 
 Vous remarquerez cependant que cette configuration n'est pas satisfaisante, car elle n'est pas configurable, c'est à dire que par exemple si le l'adresse IP d'une VM change ou si nous rajoutons une VM (Spring Boot) elle ne sera pas automatiquement rajouté dans la configuration d'HAProxy
 
 Modifions notre role pour qu'il puisse gérer les mises à jour de notre infra.
 
-* Ajout du template de configuration haproxy e utilisant le templating [Jinja2](http://jinja.pocoo.org/docs/2.10/)
+* Ajout du template de configuration haproxy e utilisant le templating [Jinja2](http://jinja.pocoo.org/docs/2.10/).
 
 ```sh
 mkdir /learn-ansible/roles/haproxy/templates
@@ -694,7 +720,7 @@ backend {{ haproxy_backend_name }}
 EOF
 ```
 
-* Modification de /learn-ansible/roles/haproxy/tasks/main.yml pour gérer la copie (templating) de la configuration de l'HAPROXY
+* Modification de /learn-ansible/roles/haproxy/tasks/main.yml pour gérer la copie (templating) de la configuration de l'HAPROXY.
 
 ```sh
 # Mise à jour de notre fichier tasks principal
@@ -800,7 +826,9 @@ cat /etc/haproxy/haproxy.cfg
 exit
  ```
 
-On voit que Ansible à bien renseigné toutes les variables attendues
+On voit que Ansible à bien renseigné toutes les variables attendues.
+
+    A vous d'enrichir les tests du role pour ajouter la vérification de la configuration haproxy si vous avez besoin de le faire.
 
 
 ### Playbook d'installation de l'HAPROXY
@@ -845,8 +873,8 @@ ansible-playbook deploy-haproxy.yml
 
 Pour tester que tout fonctionne bien:
 
-- Ouvrez votre navigateur web préféré
+- Ouvrez votre navigateur web préféré sur votre poste local
 - Aller à l'adresse suivante: **http://192.168.77.31/hello**
-- Rafraichissez cette page plusieurs fois pour constaté dans le message affiché qu'à chaque appel c'est une instance différente de nos application **Spring Boot** qui réponds.
+- Rafraichissez cette page plusieurs fois pour constater dans le message affiché qu'à chaque appel c'est une instance différente de nos applications **Spring Boot** qui réponds.
 
 Nous l'avons fait !! Nous venons de mettre en place l'infra tel que décrite au début du tuto.
